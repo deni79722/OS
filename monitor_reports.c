@@ -14,7 +14,7 @@ void  handle_signal(int sig){
         keep_running=0;
     }
     else if(sig==SIGUSR1){
-        const char msg[]="NOTIFICARE din monitor_report: un nou report a fost adugat";
+        const char msg[]="NOTIFICARE: un nou report a fost adugat\n";
         write(STDOUT_FILENO, msg, sizeof(msg) - 1);
     }
 
@@ -60,7 +60,7 @@ int main(int argc, const char ** argv){
         exit(EXIT_FAILURE);
     }
 
-    const char start_msg[] = "Running... (Wainting SIGUSR1/SIGINT)\n";
+    const char start_msg[] = "Running... (Waiting SIGUSR1/SIGINT)\n";
     write(STDOUT_FILENO, start_msg, sizeof(start_msg) - 1);//afisam in terminal
 
     // 3. Bucla principala - programul se termina DOAR la SIGINT
@@ -69,7 +69,7 @@ int main(int argc, const char ** argv){
     }
 
     // 4. Curatenia de final
-    const char exit_msg[] = "SIGINT primit.Closing monitor and deleting the PID.\n";
+    const char exit_msg[] = "SIGINT primit.Closing monitor and deleting the PID\n";
     write(STDOUT_FILENO, exit_msg, sizeof(exit_msg) - 1);
 
     if (unlink(PID_FILE) == -1) {

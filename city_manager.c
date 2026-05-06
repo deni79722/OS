@@ -7,6 +7,8 @@
 #include <unistd.h>
 #include <time.h>
 #include <stdlib.h>
+#include <sys/wait.h>   
+#include <signal.h>  
 #define PID_FILE ".monitor_pid"
 
 // Structura principala pentru rapoarte
@@ -212,6 +214,36 @@ void comanda_add(const char *dist, const char *rol, const char *user) {
 
     scrie_in_log(log, rol, user, "Adaugare raport");
     printf("Raport %d salvat cu succes.\n", r.id);
+
+
+
+
+
+    /////// faza 2
+    int monitor_informat = 0;
+    FILE *f_pid = fopen(PID_FILE, "r");
+    
+    if (f_pid != NULL) {
+        pid_t monitor_pid;
+        if (fscanf(f_pid, "%d", &monitor_pid) == 1) {
+            // Trimitem semnalul SIGUSR1 procesului citit
+            if (kill(monitor_pid, SIGUSR1) == 0) {
+                monitor_informat = 1;
+            }
+        }
+        fclose(f_pid);
+    }
+
+    // Pregătim mesajul de log în funcție de succesul notificării
+    char log_path[256];
+    sprintf(log_path, "%s/logged_district", dist);
+
+    if (monitor_informat) {
+        scrie_in_log(log_path, rol, user, "Raport adaugat - monitor informat prin SIGUSR1");
+    } else {
+        // Dacă fișierul .monitor_pid nu există sau kill() a eșuat
+        scrie_in_log(log_path, rol, user, "Raport adaugat - monitorul NU a putut fi informat");
+    }
 }
 
 void comanda_list(const char *dist, const char *rol, const char *user) {
@@ -233,7 +265,7 @@ void comanda_list(const char *dist, const char *rol, const char *user) {
     int fd = open(path, O_RDONLY);
     Report r;
     
-    // Am pus la loc formatarea frumoasa sub forma de tabel
+   
     printf("\nID  | Inspector  | Categorie  | Sev | Descriere\n");
     printf("--------------------------------------------------\n");
     while (read(fd, &r, sizeof(Report)) > 0) {
@@ -250,7 +282,7 @@ void comanda_remove_report(const char *dist, const char *rol, const char *user, 
         printf("Doar managerul poate sterge!\n");
         return;
     }
-
+   
     char path[256], log[256]; 
     
     sprintf(path, "%s/reports.dat", dist);// calea către fișierul de reports
@@ -428,8 +460,22 @@ void comanda_filter(const char *dist, const char *rol, const char *user, const c
 }
 
 void comanda_remove_district(const char *dist, const char *rol, const char *user) {
+
+
     if (strcmp(rol, "manager") != 0) {
         printf("Doar managerul poate sterge un district!\n");
+        return;
+    }
+
+     struct stat st;
+    //verificare st;
+    if (stat(dist, &st) == -1) {
+        fprintf(stderr, "Eroare: Districtul '%s' nu exista.\n", dist);
+        return;
+    }
+    //verificare ca e director
+    if (!S_ISDIR(st.st_mode)) {
+        fprintf(stderr, "Eroare: '%s' nu este un director.\n", dist);
         return;
     }
 
