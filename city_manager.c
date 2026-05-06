@@ -496,19 +496,7 @@ void comanda_remove_district(const char *dist, const char *rol, const char *user
 }
 
 
-// // Handler pentru SIGUSR1 - Notificare raport nou
-// void handle_sigusr1(int sig) {
-//     const char *msg = "\n[Monitor] Alert: A new report has been added to the system!\n";
-//     write(STDOUT_FILENO, msg, strlen(msg));
-// }
 
-// // Handler pentru SIGINT - Închidere program 
-// void handle_sigint(int sig) {
-//     const char *msg = "\n[Monitor] Shutting down. Cleaning up PID file...\n";
-//     write(STDOUT_FILENO, msg, strlen(msg));
-//     unlink(PID_FILE); // Șterge fișierul la ieșire 
-//     exit(0);
-// }
 //////////////////////////////////////////////////////////////// MAIN //////////////////////////////////////////////////////////////////////////////
 
 int main(int argc, char *argv[]) {
