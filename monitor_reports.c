@@ -20,61 +20,75 @@ void  handle_signal(int sig){
 
 }
 
-int main(int argc, const char ** argv){
+void setup_signal(){
 
-   
-    pid_t my_pid = getpid();
-    char pid_buffer[16];
     struct sigaction sa;
 
-    //creeare sau overrides pentru fisier
-    int fd;
-    fd=open(PID_FILE, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-    if(fd==-1){
-        perror("error opening file!");
-        exit(EXIT_FAILURE);
-    }
-
-    // Convertim PID-ul in string si il scriem in fisier
-    int len =snprintf(pid_buffer, sizeof(pid_buffer), "%d", my_pid);
-    if (write(fd, pid_buffer, len) == -1) {
-        perror("Error at writing PID");
-        close(fd);
-        exit(EXIT_FAILURE);
-    }
-    close(fd);
-
-
-    //configurare signaction
-    memset(&sa, 0, sizeof(sa));//umplem cu 0 
+    memset(&sa, 0, sizeof(sa));
     sa.sa_handler = handle_signal;
-    sigemptyset(&sa.sa_mask); // Blocam alte semnale in timpul executiei handler-ului
+
+    sigemptyset(&sa.sa_mask);
     sa.sa_flags = 0;
 
-    if(sigaction(SIGINT, &sa, NULL)==-1){
-        perror("error at sigaction SIGINT");
+    if (sigaction(SIGINT, &sa, NULL) == -1 || sigaction(SIGUSR1, &sa, NULL) == -1) {
+        perror("Eroare la facere semnale");
         exit(EXIT_FAILURE);
     }
-    if (sigaction(SIGUSR1, &sa, NULL) == -1) {
-        perror("error at sigaction SIGUSR1");
+}
+/////faza 3
+void check_if_already_running() {
+    int check_fd = open(PID_FILE, O_RDONLY);
+
+    if (check_fd != -1) {
+        char existing_pid[16];
+        ssize_t n = read(check_fd, existing_pid, sizeof(existing_pid) - 1);
+        if (n > 0) {
+            existing_pid[n] = '\0';
+            // Trimiterea erorii prin pipe către hub 
+            dprintf(STDOUT_FILENO, "erroare, monitorul deja ruleaza cu PID  %s\n", existing_pid);
+        }
+        close(check_fd);
+        exit(EXIT_SUCCESS); 
+    }
+}
+
+void create_pid_file() {
+    int fd = open(PID_FILE, O_WRONLY | O_CREAT | O_TRUNC, 0644); 
+    if (fd == -1) {
+        perror("erroare la creare fisier");
         exit(EXIT_FAILURE);
     }
+    dprintf(fd, "%d", getpid());
+    close(fd);
+}
 
-    const char start_msg[] = "Running... (Waiting SIGUSR1/SIGINT)\n";
-    write(STDOUT_FILENO, start_msg, sizeof(start_msg) - 1);//afisam in terminal
+void cleanup() {
 
-    // 3. Bucla principala - programul se termina DOAR la SIGINT
+    const char exit_msg[] = "STOP:Monitor oprit de SIGINT\n";
+    write(STDOUT_FILENO, exit_msg, strlen(exit_msg));
+    unlink(PID_FILE); 
+}
+
+int main(int argc, const char ** argv){
+
+    //verific
+    check_if_already_running(); 
+    //creez
+    create_pid_file();
+    //setez semanle
+    setup_signal();
+
+    //rulez
+    const char start_msg[] = "INFO:Monitor active\n";
+    write(STDOUT_FILENO, start_msg, strlen(start_msg));
+
     while (keep_running) {
-        pause(); // Suspendam executia pana la primirea unui semnal
+        pause(); 
     }
 
-    // 4. Curatenia de final
-    const char exit_msg[] = "SIGINT primit.Closing monitor and deleting the PID\n";
-    write(STDOUT_FILENO, exit_msg, sizeof(exit_msg) - 1);
+    //curat
+    cleanup();
 
-    if (unlink(PID_FILE) == -1) {
-        perror("Eroare la stergerea .monitor_pid");
-    }
+    //Verific -> Creez PID -> Setez Semnale -> Rulez -> Curăț.
     return 0;
-
 }
